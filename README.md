@@ -1,4 +1,3 @@
-
 import { render } from '../../../util/testUtils'
 import { fireEvent } from '@testing-library/react'
 import { language } from '../../../helper/languages'
@@ -232,4 +231,101 @@ describe('ViewReviewScreen Component', () => {
       expect(requetedChangesTitle).toBeInTheDocument()
     })
 
-    it
+    it('should not render component when comment list is empty', () => {
+      jest.spyOn(reviewsApiHook, 'useReviewsQuery').mockImplementation(() => {
+        return { ...reviewsHookMockData[0], data: [] } as never
+      })
+
+      const { queryByText } = render(
+        <Grid>
+          <ViewReviewComponent />
+        </Grid>
+      )
+
+      expect(queryByText(REQUESTED_CHANGES_TITLE)).toBeNull()
+    })
+
+    it('should render component with empty comments message in case of error', () => {
+      jest.spyOn(reviewsApiHook, 'useReviewsQuery').mockImplementation(() => {
+        return { ...reviewsHookMockData[0], isError: true } as never
+      })
+
+      const { getByText } = render(
+        <Grid>
+          <ViewReviewComponent />
+        </Grid>
+      )
+
+      expect(getByText(NO_COMMENTS_MSG)).toBeInTheDocument()
+    })
+
+    it('should display the internal server error when mutation error has no details', () => {
+      jest.spyOn(reviewsApiHook, 'useReviewsQuery').mockImplementation(() => ({
+        ...reviewsHookMockData[0],
+        isError: true,
+        error: {
+          data: { Errors: { Error: [{ Details: 'Internal Server Error' }] } },
+        },
+      }))
+
+      const reviewPayload: AddReviewPayload = {
+        comment: 'testing',
+        isCompleted: false,
+      }
+
+      const addReview = jest.fn()
+      const addReviewMockData = [addReview, ...[{ data: { reviewPayload } }]]
+      jest
+        .spyOn(ReviewsApiHook, 'useAddReviewMutation')
+        .mockImplementation(() => {
+          return addReviewMockData as never
+        })
+      const { getByText } = render(
+        <Grid>
+          <ViewReviewComponent />
+        </Grid>
+      )
+      expect(getByText(INTERNAL_SERVER_ERROR)).toBeInTheDocument()
+    })
+
+    // New Test Case: Ensure review comments are displayed correctly when data is present
+    it('displays review comments when data is present', () => {
+      jest.spyOn(reviewsApiHook, 'useReviewsQuery').mockImplementation(() => ({
+        ...reviewsHookMockData[0],
+        data: [
+          {
+            id: '1',
+            createdBy: { firstName: 'John', lastName: 'Doe' },
+            createdTime: '2023-10-01T12:00:00Z',
+            comment: 'This is a test comment',
+          },
+        ],
+      }))
+
+      const { getByText } = render(
+        <Grid>
+          <ViewReviewComponent />
+        </Grid>
+      )
+
+      expect(getByText('John Doe')).toBeInTheDocument()
+      expect(getByText('This is a test comment')).toBeInTheDocument()
+    })
+
+    // New Test Case: Ensure no error is shown when mutation is successful
+    it('does not show error message when mutation is successful', () => {
+      jest.spyOn(reviewsApiHook, 'useReviewsQuery').mockImplementation(() => ({
+        ...reviewsHookMockData[0],
+        isError: false,
+      }))
+
+      const { queryByText } = render(
+        <Grid>
+          <ViewReviewComponent />
+        </Grid>
+      )
+
+      expect(queryByText(INTERNAL_SERVER_ERROR)).toBeNull()
+    })
+  })
+})
